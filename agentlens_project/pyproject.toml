@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agentlens-ui"
+version = "0.1.0"
+description = "Zero-config, local observability UI for multi-agent systems."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Kushal Hiremath", email = "kushalphiremath2004@gmail.com" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Debuggers",
+]
+dependencies = [
+    "fastapi>=0.100.0",
+    "uvicorn>=0.23.0",
+]
+
+# Create a global terminal command `agentlens`
+[project.scripts]
+agentlens = "agentlens_ui.cli:main"
+
+# Force PyPI to include our HTML file in the wheel
+[tool.setuptools.package-data]
+agentlens_ui = ["*.html"]

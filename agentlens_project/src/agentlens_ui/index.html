@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentLens Observability</title>
+    <style>
+        :root {
+            --bg-base: #000000;
+            --bg-panel: #0d0d0d;
+            --bg-hover: #1a1a1a;
+            --bg-selected: #0a192f;
+            --border-dim: #222222;
+            --border-med: #333333;
+            --text-main: #cccccc;
+            --text-bright: #ffffff;
+            --text-muted: #666666;
+            --color-success: #4caf50;
+            --color-error: #f44336;
+            --color-thought: #ffb300;
+            --color-tool: #2196f3;
+            --font-mono: 'JetBrains Mono', Consolas, monospace;
+            --font-sans: system-ui, -apple-system, sans-serif;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            height: 100vh;
+            display: grid;
+            grid-template-rows: 40px 1fr;
+            overflow: hidden;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: var(--border-med); }
+        .command-bar {
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-med);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            font-size: 12px;
+        }
+        .bar-section { display: flex; align-items: center; gap: 12px; }
+        .brand { color: var(--text-bright); font-weight: bold; }
+        .ui-input {
+            background: var(--bg-base);
+            color: var(--text-bright);
+            border: 1px solid var(--border-med);
+            padding: 3px 8px;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="text"].ui-input { width: 220px; }
+        .action-btn {
+            background: transparent;
+            border: 1px solid var(--border-med);
+            color: var(--text-main);
+            padding: 3px 10px;
+            font-size: 11px;
+            cursor: pointer;
+            border-radius: 2px;
+        }
+        .action-btn.active { border-color: var(--color-success); color: var(--color-success); }
+        .workspace { display: grid; grid-template-columns: 48% 52%; height: 100%; overflow: hidden; }
+        .waterfall-pane, .inspector-pane { display: flex; flex-direction: column; overflow: hidden; }
+        .waterfall-pane { border-right: 1px solid var(--border-med); background: var(--bg-base); }
+        .inspector-pane { background: var(--bg-panel); }
+        .pane-header, .inspector-toolbar {
+            background: var(--bg-panel);
+            padding: 6px 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-dim);
+            display: flex;
+            justify-content: space-between;
+        }
+        .waterfall-list, .inspector-content { flex: 1; overflow-y: auto; }
+        .trace-row {
+            display: grid;
+            grid-template-columns: 75px 70px 1fr 50px;
+            gap: 8px;
+            padding: 6px 12px;
+            border-bottom: 1px solid var(--border-dim);
+            font-family: var(--font-mono);
+            font-size: 11px;
+            cursor: pointer;
+            position: relative;
+        }
+        .trace-row:hover { background-color: var(--bg-hover); }
+        .trace-row.selected { background-color: var(--bg-selected); border-left: 3px solid var(--color-tool); padding-left: 9px; }
+        .cell-time { color: var(--text-muted); }
+        .cell-type { font-weight: bold; }
+        .cell-content { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cell-latency { color: var(--text-muted); text-align: right; }
+        .latency-bar { position: absolute; bottom: 0; left: 0; height: 1px; background-color: var(--color-tool); opacity: 0.5; }
+        .type-START { color: var(--color-success); }
+        .type-THOUGHT { color: var(--color-thought); }
+        .type-TOOL { color: var(--color-tool); }
+        .type-SUCCESS { color: var(--color-success); }
+        .type-ERROR { color: var(--color-error); }
+        .inspector-content { padding: 16px; font-family: var(--font-mono); font-size: 12px; }
+        .inspector-content pre { white-space: pre-wrap; word-wrap: break-word; }
+        .empty-state { display: flex; height: 100%; align-items: center; justify-content: center; color: var(--text-muted); font-size: 12px; }
+    </style>
+</head>
+<body>
+    <header class="command-bar">
+        <div class="bar-section">
+            <span class="brand">AgentLens</span>
+            <select id="run-selector" class="ui-input" onchange="switchRun(this.value)">
+                <option>Loading sessions...</option>
+            </select>
+            <input type="text" id="trace-filter" class="ui-input" placeholder="Filter agents, content..." oninput="applyFilter()">
+            <button id="polling-btn" class="action-btn active" onclick="togglePolling()">Auto-Refresh: ON</button>
+        </div>
+        <div class="bar-section" style="color: var(--text-muted);">
+            <span>Steps: <strong id="metric-steps" style="color: var(--text-bright);">0</strong></span>
+            <span style="margin-left: 8px;">Time: <strong id="metric-time" style="color: var(--text-bright);">0.00s</strong></span>
+        </div>
+    </header>
+
+    <main class="workspace">
+        <section class="waterfall-pane">
+            <div class="pane-header">
+                <span style="display: grid; grid-template-columns: 75px 70px 1fr; gap: 8px; width: 100%;">
+                    <span>Time</span><span>Type</span><span>Agent & Payload</span>
+                </span>
+                <span>Lat.</span>
+            </div>
+            <div class="waterfall-list" id="waterfall-list">
+                <div class="empty-state">Awaiting telemetry data...</div>
+            </div>
+        </section>
+
+        <section class="inspector-pane">
+            <div class="inspector-toolbar">
+                <span id="inspector-title">Payload Inspector</span>
+                <button class="action-btn" onclick="copyPayload()">Copy JSON</button>
+            </div>
+            <div class="inspector-content" id="inspector-content">
+                <div class="empty-state">Select a step to inspect details</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        let currentTraces = [];
+        let selectedTraceId = null;
+        let isPolling = true;
+        let pollingTimer = null;
+
+        // Issue #6: Robust HTML sanitization preventing XSS execution
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+        }
+
+        // Issue #7: Tokenizer syntax highlighting executed prior to DOM insertion
+        function syntaxHighlight(jsonStr) {
+            const escaped = escapeHtml(jsonStr);
+            return escaped.replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+                let color = '#e4e4e7';
+                if (/^"/.test(match)) {
+                    color = /:$/.test(match) ? '#60a5fa' : '#4caf50';
+                } else if (/true|false/.test(match)) {
+                    color = '#ffb300';
+                } else if (/null/.test(match)) {
+                    color = '#f44336';
+                }
+                return `<span style="color: ${color};">${match}</span>`;
+            });
+        }
+
+        // Issue #11: Parse human-readable timestamps into run selector options
+        function formatRunId(runId) {
+            const parts = runId.split('_');
+            if (parts.length >= 2 && !isNaN(parts[1])) {
+                const date = new Date(parseInt(parts[1]) * 1000);
+                return `${date.toLocaleTimeString()} (${runId.substring(runId.length - 5)})`;
+            }
+            return runId;
+        }
+
+        async function fetchRuns() {
+            try {
+                const res = await fetch('/api/runs');
+                if (!res.ok) throw new Error();
+                const runs = await res.json();
+                
+                const selector = document.getElementById('run-selector');
+                const currentVal = selector.value;
+                selector.innerHTML = '';
+
+                if (runs.length === 0) {
+                    selector.innerHTML = '<option value="">No runs recorded</option>';
+                    return;
+                }
+
+                runs.forEach(run => {
+                    const opt = document.createElement('option');
+                    opt.value = run.run_id;
+                    opt.textContent = formatRunId(run.run_id);
+                    selector.appendChild(opt);
+                });
+
+                if (currentVal && runs.some(r => r.run_id === currentVal)) {
+                    selector.value = currentVal;
+                } else if (runs.length > 0) {
+                    selector.value = runs[0].run_id;
+                    loadTraces(runs[0].run_id);
+                }
+            } catch (e) {
+                // Issue #14: Offline connection error indicator
+                document.getElementById('waterfall-list').innerHTML = 
+                    '<div class="empty-state" style="color: var(--color-error);">⚠️ Backend unreachable. Verify local server is active.</div>';
+            }
+        }
+
+        async function loadTraces(runId) {
+            if (!runId) return;
+            try {
+                const res = await fetch(`/api/traces/${runId}`);
+                if (!res.ok) throw new Error();
+                currentTraces = await res.json();
+                renderWaterfall();
+            } catch (e) {
+                console.error("Trace sync error", e);
+            }
+        }
+
+        function renderWaterfall() {
+            const list = document.getElementById('waterfall-list');
+            if (currentTraces.length === 0) {
+                list.innerHTML = '<div class="empty-state">No execution steps logged in session.</div>';
+                return;
+            }
+
+            // Issue #5: Stack-safe reduce instead of Math.max(...spread)
+            const maxLatency = currentTraces.reduce((max, t) => Math.max(max, t.latency || 0), 0.001);
+            let totalLatency = 0;
+
+            const fragment = document.createDocumentFragment();
+            const filterQuery = document.getElementById('trace-filter').value.toLowerCase();
+
+            currentTraces.forEach(trace => {
+                if (trace.latency) totalLatency += trace.latency;
+
+                const searchTarget = `${trace.agent_name} ${trace.step_type} ${trace.content}`.toLowerCase();
+                const isVisible = searchTarget.includes(filterQuery);
+
+                const timeFormatted = new Date(trace.timestamp * 1000).toISOString().substring(11, 23);
+                const latText = trace.latency ? `${trace.latency.toFixed(2)}s` : '-';
+                const latWidth = trace.latency ? (trace.latency / maxLatency) * 100 : 0;
+
+                const row = document.createElement('div');
+                row.className = `trace-row ${trace.id === selectedTraceId ? 'selected' : ''}`;
+                row.style.display = isVisible ? 'grid' : 'none';
+                row.onclick = () => selectTrace(trace.id);
+
+                // Safe HTML injection via strict escaping
+                row.innerHTML = `
+                    <div class="cell-time">${timeFormatted}</div>
+                    <div class="cell-type type-${escapeHtml(trace.step_type)}">${escapeHtml(trace.step_type)}</div>
+                    <div class="cell-content"><strong>[${escapeHtml(trace.agent_name)}]</strong> ${escapeHtml(trace.content)}</div>
+                    <div class="cell-latency">${latText}</div>
+                    <div class="latency-bar" style="width: ${latWidth}%;"></div>
+                `;
+                fragment.appendChild(row);
+            });
+
+            list.innerHTML = '';
+            list.appendChild(fragment);
+
+            document.getElementById('metric-steps').textContent = currentTraces.length;
+            document.getElementById('metric-time').textContent = `${totalLatency.toFixed(2)}s`;
+
+            // Issue #13: Preserve inspector selection state on re-render
+            if (selectedTraceId) {
+                const activeTrace = currentTraces.find(t => t.id === selectedTraceId);
+                if (activeTrace) selectTrace(activeTrace.id);
+            }
+        }
+
+        // Issue #12: Preserve filter application on live updates
+        function applyFilter() {
+            renderWaterfall();
+        }
+
+        function selectTrace(traceId) {
+            selectedTraceId = traceId;
+            document.querySelectorAll('.trace-row').forEach(el => el.classList.remove('selected'));
+            const target = currentTraces.find(t => t.id === traceId);
+            if (!target) return;
+
+            const inspector = document.getElementById('inspector-content');
+            document.getElementById('inspector-title').textContent = `Step Inspector: ${target.step_type} [${target.agent_name}]`;
+
+            if (target.details && target.details !== "{}" && target.details !== "null") {
+                try {
+                    const parsed = typeof target.details === 'string' ? JSON.parse(target.details) : target.details;
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    inspector.innerHTML = `<pre>${syntaxHighlight(formatted)}</pre>`;
+                } catch (e) {
+                    inspector.innerHTML = `<pre>${escapeHtml(target.details)}</pre>`;
+                }
+            } else {
+                inspector.innerHTML = '<div class="empty-state">No structured payload recorded for this step.</div>';
+            }
+        }
+
+        function copyPayload() {
+            const target = currentTraces.find(t => t.id === selectedTraceId);
+            if (!target || !target.details) return;
+            navigator.clipboard.writeText(target.details);
+        }
+
+        function switchRun(runId) {
+            selectedTraceId = null;
+            document.getElementById('inspector-content').innerHTML = '<div class="empty-state">Select a step to inspect details</div>';
+            loadTraces(runId);
+        }
+
+        // Issue #10: Real-time background polling interval
+        function togglePolling() {
+            const btn = document.getElementById('polling-btn');
+            isPolling = !isPolling;
+            if (isPolling) {
+                btn.textContent = "Auto-Refresh: ON";
+                btn.classList.add('active');
+                startPolling();
+            } else {
+                btn.textContent = "Auto-Refresh: PAUSED";
+                btn.classList.remove('active');
+                clearInterval(pollingTimer);
+            }
+        }
+
+        function startPolling() {
+            clearInterval(pollingTimer);
+            pollingTimer = setInterval(() => {
+                if (!isPolling) return;
+                fetchRuns();
+                const activeRun = document.getElementById('run-selector').value;
+                if (activeRun) loadTraces(activeRun);
+            }, 2000);
+        }
+
+        fetchRuns();
+        startPolling();
+    </script>
+</body>
+</html>

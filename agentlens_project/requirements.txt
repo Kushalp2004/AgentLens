@@ -1,0 +1,10 @@
+# Web Server & UI
+fastapi>=0.100.0
+uvicorn>=0.23.0
+
+# Multi-Agent Testing Frameworks
+crewai>=0.28.0
+langchain-openai>=0.1.0
+# Multi-Agent Testing Frameworks
+crewai[google-genai]>=0.28.0
+langchain-openai>=0.1.0

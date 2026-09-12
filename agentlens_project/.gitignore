@@ -1,0 +1,18 @@
+# Environments
+venv/
+env/
+.env
+
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# AgentLens Local Data
+*.db
+*.jsonl
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
