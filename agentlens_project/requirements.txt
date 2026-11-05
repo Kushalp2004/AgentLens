@@ -1,10 +1,7 @@
-# Web Server & UI
+# Web Server & UI (Core Runtime)
 fastapi>=0.100.0
 uvicorn>=0.23.0
 
-# Multi-Agent Testing Frameworks
+# Optional Multi-Agent Testing & Development
 crewai>=0.28.0
-langchain-openai>=0.1.0
-# Multi-Agent Testing Frameworks
-crewai[google-genai]>=0.28.0
-langchain-openai>=0.1.0
+python-dotenv>=1.0.0
