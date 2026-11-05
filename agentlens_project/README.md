@@ -1,37 +1,37 @@
-# 👁️ AgentLens
+# AgentLens
 
 [![PyPI Version](https://img.shields.io/pypi/v/agentlens-ui.svg?style=flat-square&logo=pypi&label=PyPI)](https://pypi.org/project/agentlens-ui/)
 [![Python Versions](https://img.shields.io/pypi/pyversions/agentlens-ui.svg?style=flat-square&logo=python)](https://pypi.org/project/agentlens-ui/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=flat-square)](LICENSE)
 
-> ⚡️ **AgentLens** is an ultra-lightweight, zero-config, local-first observability and execution trace visualizer built specifically for multi-agent autonomous frameworks (CrewAI, LangGraph, AutoGen, and custom LLM workflows).
+AgentLens is a lightweight, zero-configuration, local-first observability and execution trace visualizer built for multi-agent autonomous frameworks (CrewAI, LangGraph, AutoGen, and custom LLM workflows).
 
 ---
 
-## 💡 Why AgentLens?
+## Overview
 
-Cloud telemetry platforms (LangSmith, Phoenix, Datadog) require external API keys, introduce network latency, and store your agent thoughts and prompts on third-party servers.
+Telemetry platforms often require external API keys, introduce network latency, and store agent thoughts and prompts on third-party servers.
 
-**AgentLens runs 100% locally on your machine**:
-- **0 ms Network Overhead**: Traces write locally to an embedded SQLite database using **WAL (Write-Ahead Logging)** mode.
-- **Async & Thread-Safe**: Built on Python `contextvars` to reliably reconstruct nested parent-child call trees across coroutines and worker threads.
-- **Zero Serialization Crashes**: Features a bulletproof fallback serialization barrier that gracefully handles non-serializable objects (generators, Pydantic models, binary blobs).
-- **Embedded Web UI**: Single-command local dashboard (`agentlens ui`) with live polling, waterfall call trees, latency metrics, and syntax-highlighted JSON forensic inspection.
+AgentLens runs locally on your machine:
+- **Zero Network Overhead**: Traces write locally to an embedded SQLite database using Write-Ahead Logging (WAL) mode.
+- **Async and Thread-Safe**: Built on Python `contextvars` to reconstruct nested parent-child call trees across coroutines and worker threads.
+- **Crash-Resilient Serialization**: Implements fallback serialization to handle non-serializable objects (generators, Pydantic models, binary payloads) without failing the host process.
+- **Embedded Web UI**: Single-command local dashboard (`agentlens ui`) providing live polling, waterfall call trees, latency metrics, and formatted JSON inspection.
 
 ---
 
-## 🚀 Quickstart
+## Quickstart
 
 ### 1. Installation
 
-Install the engine via pip:
+Install via pip:
 ```bash
 pip install agentlens-ui
 ```
 
-### 2. Instrument Your Multi-Agent Code
+### 2. Instrument Multi-Agent Workflows
 
-Add the `@trace` decorator to your agents, tools, or task functions:
+Apply the `@trace` decorator to agent functions, tools, or task handlers:
 
 ```python
 from agentlens_ui.core import trace
@@ -48,7 +48,7 @@ async def run_agent(task_description: str):
     return f"Completed analysis with {results}"
 ```
 
-For programmatic logging (e.g. CrewAI step callbacks, LangChain event hooks):
+For programmatic logging (such as CrewAI step callbacks or event listeners):
 ```python
 from agentlens_ui.core import log_trace
 
@@ -61,18 +61,18 @@ def step_callback(step_output):
     )
 ```
 
-### 3. Launch the Dashboard
+### 3. Launch Dashboard
 
-Run the global CLI command in your project terminal:
+Run the CLI command in your project directory:
 ```bash
 agentlens ui
 ```
 
-Open your browser at **`http://localhost:8000`** to view live waterfall traces, execution latency, and step-by-step agent reasoning!
+Navigate to `http://localhost:8000` to view waterfall traces, execution latency, and step-by-step reasoning logs.
 
 ---
 
-## 🧩 Framework Integrations
+## Framework Integrations
 
 ### CrewAI Integration Example
 
@@ -113,7 +113,7 @@ if __name__ == "__main__":
 
 ---
 
-## ⚙️ Configuration & Environment Variables
+## Configuration
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
@@ -126,16 +126,16 @@ export AGENTLENS_DB_PATH=~/.agentlens/traces.db
 
 ---
 
-## 🏛️ Deep Technical Architecture
+## Architecture
 
-For an exhaustive technical audit of how AgentLens operates under the hood, read the [Staff Software Engineer Architectural Review](ARCHITECTURAL_REVIEW.md):
+For an in-depth breakdown of system mechanics, refer to the [Architecture Review](ARCHITECTURAL_REVIEW.md):
 - **Lineage Mechanics**: Causal parent-child call graph resolution via `contextvars`.
 - **Concurrency & WAL Mode**: Lockless readers, busy timeout queuing (`timeout=10.0`), and descriptor cleanup (`contextlib.closing`).
-- **Serialization Boundary**: Two-tier safety mechanisms intercepting un-serializable models.
+- **Serialization Boundary**: Multi-tiered fallback mechanisms for un-serializable models.
 - **Comparative Analysis**: Performance benchmarks against cloud telemetry collectors.
 
 ---
 
-## 📄 License
+## License
 
 Distributed under the [MIT License](LICENSE).
